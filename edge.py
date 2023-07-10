@@ -30,8 +30,8 @@ class EdgeServer(fl.server.Server):
 if __name__ == "__main__":
     edge = EdgeServer()
     strategy = edge.configure(10, 2, 2)
-    fl.server.start_server("192.168.126.93:5000", config=strategy)  # Use the actual IP of the edge server
+    fl.server.start_server("192.168.126.93:5000", strategy=strategy)  # Use the actual IP of the edge server
 
     client = Client(get_model())
-    fl.client.start_numpy_client("192.168.126.49:5000", client)  # Use the actual IP of the cloud server
+    fl.client.start_numpy_client("192.168.126.61:5000", client)  # Use the actual IP of the cloud server
 
