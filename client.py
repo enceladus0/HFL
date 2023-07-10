@@ -3,8 +3,9 @@ import torch
 import torch.nn as nn
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
+from flwr.common import Weights, parameters_to_weights, weights_to_parameters
+from tqdm import tqdm
 
-# same model as before
 def get_model():
     model = nn.Sequential(
         nn.Conv2d(3, 6, 5),
@@ -44,24 +45,20 @@ class Client(fl.client.NumPyClient):
 
     def fit(self, parameters, config):
         self.set_parameters(parameters)
-        for epoch in range(2):  # 2 epochs
-            running_loss = 0.0
-            for i, (images, labels) in enumerate(self.train_loader):
-                images = images.to(self.device)
-                labels = labels.to(self.device)
-                self.optimizer.zero_grad()
-                output = self.model(images)
-                loss = self.criterion(output, labels)
-                loss.backward()
-                self.optimizer.step()
-                
-                running_loss += loss.item()
-                if i % 391 == 390:    # print every 390 mini-batches, 781 mini-batches total
-                    print('[%d, %5d] loss: %.3f' %
-                          (epoch + 1, i + 1, running_loss / 2000))
-                    running_loss = 0.0
+        pbar = tqdm(total=len(self.train_loader), desc="Training Progress")  # 创建进度条
+        for images, labels in self.train_loader:
+            images = images.to(self.device)
+            labels = labels.to(self.device)
+            self.optimizer.zero_grad()
+            output = self.model(images)
+            loss = self.criterion(output, labels)
+            loss.backward()
+            self.optimizer.step()
+            pbar.update(1)  # 更新进度条
+            pbar.set_postfix({'loss': loss.item()})
+        pbar.close()
         return self.get_parameters(), len(self.train_loader), {}
-        
+
     def evaluate(self, parameters, config):
         self.set_parameters(parameters)
         correct, total = 0, 0
@@ -73,8 +70,6 @@ class Client(fl.client.NumPyClient):
                 _, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
-        print('Accuracy of the network on the 10000 test images: %d %%' % (
-            100 * correct / total))
         return loss, len(self.test_loader), {"accuracy": correct / total}
 
 if __name__ == "__main__":
