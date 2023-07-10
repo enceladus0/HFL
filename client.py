@@ -3,7 +3,6 @@ import torch
 import torch.nn as nn
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
-from flwr.common import Weights, parameters_to_weights, weights_to_parameters
 
 # same model as before
 def get_model():
@@ -21,6 +20,7 @@ def get_model():
         nn.ReLU(),
         nn.Linear(84, 10)
     )
+    return model
 
 class Client(fl.client.NumPyClient):
     def __init__(self):
@@ -34,6 +34,7 @@ class Client(fl.client.NumPyClient):
         self.train_loader = DataLoader(trainset, batch_size=64, shuffle=True)
         testset = datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
         self.test_loader = DataLoader(testset, batch_size=64, shuffle=False)
+
     def get_parameters(self):
         return [p.detach().cpu().numpy() for p in self.model.parameters()]
 
@@ -43,8 +44,9 @@ class Client(fl.client.NumPyClient):
 
     def fit(self, parameters, config):
         self.set_parameters(parameters)
-        for _ in range(2):  # 2 epochs
-            for images, labels in self.train_loader:
+        for epoch in range(2):  # 2 epochs
+            running_loss = 0.0
+            for i, (images, labels) in enumerate(self.train_loader):
                 images = images.to(self.device)
                 labels = labels.to(self.device)
                 self.optimizer.zero_grad()
@@ -52,6 +54,12 @@ class Client(fl.client.NumPyClient):
                 loss = self.criterion(output, labels)
                 loss.backward()
                 self.optimizer.step()
+                
+                running_loss += loss.item()
+                if i % 391 == 390:    # print every 390 mini-batches, 781 mini-batches total
+                    print('[%d, %5d] loss: %.3f' %
+                          (epoch + 1, i + 1, running_loss / 2000))
+                    running_loss = 0.0
         return self.get_parameters(), len(self.train_loader), {}
         
     def evaluate(self, parameters, config):
@@ -65,9 +73,10 @@ class Client(fl.client.NumPyClient):
                 _, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
+        print('Accuracy of the network on the 10000 test images: %d %%' % (
+            100 * correct / total))
         return loss, len(self.test_loader), {"accuracy": correct / total}
 
 if __name__ == "__main__":
     client = Client()
     fl.client.start_numpy_client("192.168.126.93:5000", client)
-
