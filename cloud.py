@@ -34,4 +34,4 @@ class Cloud(fl.server.Server):
 if __name__ == "__main__":
     cloud = Cloud()
     strategy = cloud.configure(2, 2)
-    fl.server.start_server("0.0.0.0:5000", config=strategy)
+    fl.server.start_server("0.0.0.0:5000", strategy=strategy)
