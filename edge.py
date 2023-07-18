@@ -80,4 +80,4 @@ if __name__ == "__main__":
     fl.server.start_server("192.168.126.93:5000", strategy=strategy)
 
     client = EdgeClient(model)
-    fl.client.start_numpy_client("192.168.126.61:5000", client)
+    fl.client.start_numpy_client("192.168.126.49:5000", client)
